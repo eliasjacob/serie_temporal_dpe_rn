@@ -50,7 +50,8 @@ Request body:
     "features_data": {
         "feature1": [1, 2, ...],
         "feature2": [1, 3, ...]
-    }
+    },
+    "coverage": 0.9
 }
 ```
 
@@ -59,11 +60,17 @@ Response format:
 {
     "target1": {
         "dates": ["2023-01-01", "2023-01-02", ...],
-        "predictions": [11, 11.2, ...]
+        "predictions": [11, 11.2, ...],
+        "lower_bound": [10, 10.5, ...],
+        "upper_bound": [12, 12.5, ...],
+        "coverage": 0.9
     },
     "target2": {
         "dates": ["2023-01-01", "2023-01-02", ...],
-        "predictions": [20.1, 21.3, ...]
+        "predictions": [20.1, 21.3, ...],
+        "lower_bound": [19, 20, ...],
+        "upper_bound": [21, 22, ...],
+        "coverage": 0.9
     }
 }
 ```
