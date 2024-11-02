@@ -44,9 +44,10 @@ async def fit_model(
 @app.post("/forecast", response_model=Dict[str, ForecastResponse])
 async def make_forecast(request: ForecastRequest):
     try:
-        predictions_df = forecasting_service.predict(
+        predictions_df, interval = forecasting_service.predict(
             start_date=request.start_date,
             end_date=request.end_date,
+            coverage=request.coverage,
             features_data=request.features_data
         )
         
@@ -62,7 +63,10 @@ async def make_forecast(request: ForecastRequest):
         for column in predictions_df.columns:
             response[column] = ForecastResponse(
                 dates=[d.strftime("%Y-%m-%d") for d in fh],
-                predictions=predictions_df[column].tolist()
+                predictions=predictions_df[column].tolist(),
+                lower_bound=interval[column][(request.coverage, 'lower')].tolist(),
+                upper_bound=interval[column][(request.coverage, 'upper')].tolist(),
+                coverage=request.coverage
             )
         
         return response

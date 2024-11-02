@@ -1,8 +1,37 @@
 import pandas as pd
 from sktime.forecasting.fbprophet import Prophet
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from io import BytesIO
+from workalendar.america import BrazilRioGrandeDoNorte
+
+def add_exogenous_variables(df):
+    """Add exogenous variables to the dataframe."""
+
+    input_df = df.copy()
+
+    # Add day of week
+    input_df['day_of_week'] = input_df.index.dayofweek
+    
+    # Add month
+    input_df['month'] = input_df.index.month
+    
+    # Add day of the month
+    input_df['day_of_month'] = input_df.index.day
+
+    # Add holiday
+    holidays = []
+    cal = BrazilRioGrandeDoNorte()
+    for year in range(input_df.index.min().year, input_df.index.max().year + 1):
+        holidays.extend(cal.holidays(year))
+    holidays = pd.to_datetime([h[0] for h in holidays])
+    
+    input_df['holiday'] = input_df.index.isin(holidays)
+
+    input_df = input_df[['day_of_week', 'month', 'day_of_month', 'holiday']]
+
+    return input_df
+
 
 class ForecastingService:
     def __init__(self):
@@ -27,6 +56,9 @@ class ForecastingService:
         # Prepare target variable
         self.train_y = df[target_columns]
         
+        # Add exogenous variables
+        X = add_exogenous_variables(self.train_y)
+
         # Initialize Prophet model
         self.model = Prophet(
                 seasonality_mode="additive",
@@ -43,15 +75,16 @@ class ForecastingService:
         if feature_columns:
             self.feature_columns = feature_columns
             self.train_X = df[feature_columns]
-        
-        # Fit the model
-        if feature_columns:
-            self.model.fit(self.train_y, X=self.train_X)
         else:
-            self.model.fit(self.train_y)
+            self.train_X = X
 
-    def predict(self, start_date: datetime, end_date: datetime, features_data: Optional[Dict[str, List[float]]] = None) -> pd.Series:
-        """Make predictions with optional exogenous variables."""
+        # Fit the model
+        self.model.fit(self.train_y, X=self.train_X)
+
+
+    def predict(self, start_date: datetime, end_date: datetime, coverage: float = 0.9, 
+                features_data: Optional[Dict[str, List[float]]] = None) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Make predictions with prediction intervals and optional exogenous variables."""
         if self.model is None:
             raise ValueError("Model not fitted. Please fit the model first.")
         
@@ -63,9 +96,17 @@ class ForecastingService:
         )
         
         # Prepare features data if provided
-        X = None
         if features_data and self.feature_columns:
             X = pd.DataFrame(features_data, index=fh)
+        else:
+            X = add_exogenous_variables(pd.DataFrame(index=fh))
+
+        # Make predictions with intervals
+        predictions = self.model.predict(fh, X=X)
+        intervals = self.model.predict_interval(fh, X=X, coverage=coverage)
         
-        # Make predictions
-        return self.model.predict(fh, X=X)
+        # Zero out negative predictions
+        predictions[predictions < 0] = 0
+        intervals[intervals < 0] = 0
+
+        return predictions, intervals
