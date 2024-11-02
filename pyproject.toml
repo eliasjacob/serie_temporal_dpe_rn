@@ -16,6 +16,8 @@ pyarrow = "^18.0.0"
 matplotlib = "^3.9.2"
 plotly = "^5.24.1"
 plotly-express = "^0.4.1"
+nbformat = "^5.10.4"
+prophet = "^1.1.6"
 
 
 [build-system]
